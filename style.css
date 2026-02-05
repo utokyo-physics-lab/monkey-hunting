@@ -1,0 +1,113 @@
+:root {
+    --pico-font-family: 'Zen Maru Gothic', sans-serif;
+    --pico-font-size: 16px;
+    --pico-border-radius: 16px;
+    --beam-color: #00d2ff;
+    --brand-color: #58cc02; /* Duolingo Green */
+}
+
+body {
+    background-color: #ffffff;
+    min-height: 100vh;
+    color: #4b4b4b;
+}
+
+.logo-text {
+    font-weight: 800;
+    color: #58cc02;
+    font-size: 1.8rem;
+    margin-bottom: 0.25rem;
+}
+
+main.container {
+    padding-top: 1rem;
+    max-width: 800px;
+}
+
+header {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+#canvas-container {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #ffffff;
+    border: 2px solid #e5e5e5;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+article {
+    border: 2px solid #e5e5e5;
+    border-radius: 20px;
+    background: white;
+    padding: 1.5rem;
+}
+
+.main-actions {
+    margin-bottom: 2rem; /* 隙間を増やした */
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+}
+
+#fireBtn {
+    background-color: #58cc02;
+    border: none;
+    border-bottom: 4px solid #46a302;
+    font-weight: 800;
+    color: white;
+    transition: all 0.1s;
+}
+
+#fireBtn:active {
+    border-bottom: 0px solid #46a302;
+    transform: translateY(4px);
+}
+
+#resetBtn {
+    border: 2px solid #e5e5e5;
+    border-bottom: 4px solid #e5e5e5;
+    background: white;
+    color: #afafaf;
+    font-weight: 800;
+}
+
+label {
+    font-weight: 700;
+    color: #777;
+    margin-bottom: 0.5rem;
+}
+
+input[type="number"] {
+    border: 2px solid #e5e5e5;
+    border-radius: 12px;
+    background-color: #f7f7f7;
+}
+
+.gravity-group {
+    background: #f7f7f7;
+    border: 2px solid #e5e5e5;
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.gravity-group legend {
+    font-weight: 800;
+}
+
+@media (max-width: 600px) {
+    .main-actions {
+        grid-template-columns: 1fr;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: white;
+        padding: 0.5rem 0;
+        margin-bottom: 1.5rem;
+    }
+}
+

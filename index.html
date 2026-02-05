@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>モンキーハンティング・シミュレーター</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <hgroup>
+                <h1 class="logo-text">モンキーハンティング実験室</h1>
+                <p>物理（ぶつり）をシミュレーションで学ぼう</p>
+            </hgroup>
+        </header>
+
+        <section id="simulation-section">
+            <div id="canvas-container"></div>
+        </section>
+
+        <section id="controls-section">
+            <article>
+                <div class="grid main-actions">
+                    <button id="fireBtn" class="primary">発射！</button>
+                    <button id="resetBtn" class="outline">リセット</button>
+                </div>
+
+                <div class="grid">
+                    <label>角度 (度) <input type="number" id="angle" value="30" min="0" max="90"></label>
+                    <label>弾の速さ <input type="number" id="speed" value="15" min="5" max="50"></label>
+                </div>
+
+                <details>
+                    <summary>サルと大砲の位置（数値で入れたい時）</summary>
+                    <div class="grid">
+                        <label>サルの位置（横%） <input type="number" id="monkeyX" value="80" min="50" max="95"></label>
+                        <label>サルの高さ（%） <input type="number" id="monkeyY" value="20" min="5" max="80"></label>
+                    </div>
+                    <div class="grid">
+                        <label>大砲の位置（横%） <input type="number" id="bulletX" value="5" min="2" max="40"></label>
+                        <label>大砲の高さ（%） <input type="number" id="bulletY" value="90" min="50" max="98"></label>
+                    </div>
+                </details>
+
+                <fieldset class="gravity-group">
+                    <legend>重力の強さ</legend>
+                    <label><input type="radio" name="gravity" value="0"> 無し</label>
+                    <label><input type="radio" name="gravity" value="0.16"> 月</label>
+                    <label><input type="radio" name="gravity" value="1" checked> 地球</label>
+                </fieldset>
+
+                <div class="grid visual-options">
+                    <label><input type="checkbox" id="showLine" checked> 弾とサルを結ぶ直線を表示</label>
+                    <label><input type="checkbox" id="showTrajectory" checked> 弾の通り道を表示</label>
+                </div>
+            </article>
+        </section>
+
+        <footer>
+            <small>サルを直接ドラッグして動かせるよ！</small>
+        </footer>
+    </main>
+    <script src="sketch.js"></script>
+</body>
+</html>
