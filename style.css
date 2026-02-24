@@ -3,7 +3,8 @@
     --pico-font-size: 16px;
     --pico-border-radius: 16px;
     --beam-color: #00d2ff;
-    --brand-color: #58cc02; /* Duolingo Green */
+    --brand-color: #58cc02;
+    /* Duolingo Green */
 }
 
 body {
@@ -22,6 +23,43 @@ body {
 main.container {
     padding-top: 1rem;
     max-width: 800px;
+}
+
+@media (min-width: 900px) {
+    main.container {
+        max-width: 1200px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto 1fr auto;
+        grid-template-areas:
+            "header  header"
+            "sim     controls"
+            "footer  footer";
+        column-gap: 1.5rem;
+        align-items: start;
+    }
+
+    header {
+        grid-area: header;
+    }
+
+    #simulation-section {
+        grid-area: sim;
+    }
+
+    #controls-section {
+        grid-area: controls;
+        width: 320px;
+    }
+
+    footer {
+        grid-area: footer;
+    }
+
+    /* キャンバスは横幅いっぱいに（左カラム内） */
+    #canvas-container {
+        margin-bottom: 0;
+    }
 }
 
 header {
@@ -47,7 +85,8 @@ article {
 }
 
 .main-actions {
-    margin-bottom: 2rem; /* 隙間を増やした */
+    margin-bottom: 2rem;
+    /* 隙間を増やした */
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 1rem;
@@ -110,4 +149,3 @@ input[type="number"] {
         margin-bottom: 1.5rem;
     }
 }
-
