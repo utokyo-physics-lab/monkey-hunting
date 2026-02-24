@@ -11,6 +11,20 @@ const UI = {
   isChecked: (id) => document.getElementById(id).checked
 };
 
+// ハンター→サルの方向から角度（度）を計算してスライダーに反映する
+function updateAngleFromPositions() {
+  const mx = (UI.getVal('monkeyX') / 100) * width;
+  const my = (UI.getVal('monkeyY') / 100) * height;
+  const bx = (UI.getVal('bulletX') / 100) * width;
+  const by = (UI.getVal('bulletY') / 100) * height;
+
+  // atan2 で方向を計算（p5.js のy軸は下向き正なので符号に注意）
+  // dx = mx - bx (右方向正), dy = my - by (下方向正)
+  // 表示用の角度は「水平から上向きを正」とする
+  const angleDeg = -degrees(Math.atan2(my - by, mx - bx));
+  UI.setVal('angle', angleDeg);
+}
+
 function setup() {
   const container = document.getElementById('canvas-container');
   const canvas = createCanvas(container.offsetWidth, container.offsetHeight);
@@ -18,8 +32,21 @@ function setup() {
   engine = Engine.create();
   world = engine.world;
 
-  ['angle', 'monkeyX', 'monkeyY', 'bulletX', 'bulletY', 'speed'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => { if (!isFired) resetSimulation(); });
+  ['monkeyX', 'monkeyY', 'bulletX', 'bulletY'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      if (!isFired) {
+        resetSimulation();
+        updateAngleFromPositions();
+      }
+    });
+  });
+  // 速さスライダーは角度に影響しない
+  document.getElementById('speed').addEventListener('input', () => {
+    if (!isFired) resetSimulation();
+  });
+  // 角度スライダーは読み取り専用表示（手動変更は無効化しない方が柔軟）
+  document.getElementById('angle').addEventListener('input', () => {
+    if (!isFired) resetSimulation();
   });
   document.querySelectorAll('input[name="gravity"]').forEach(el => {
     el.addEventListener('change', () => { engine.gravity.y = UI.getGravity(); });
@@ -29,6 +56,7 @@ function setup() {
   document.getElementById('fireBtn').onclick = fire;
   document.getElementById('resetBtn').onclick = resetSimulation;
   resetSimulation();
+  updateAngleFromPositions();
 }
 
 function resetSimulation() {
@@ -63,8 +91,23 @@ function fire() {
     Body.setStatic(hunter, false);
   }
 
-  const angle = radians(-UI.getVal('angle')), speed = UI.getVal('speed');
-  Body.setVelocity(bullet, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
+  // 発射方向：ハンター→サルへの単位ベクトルを使う（角度スライダーと完全一致）
+  const hx = hunter.position.x;
+  const hy = hunter.position.y;
+  const mx = monkey.position.x;
+  const my = monkey.position.y;
+
+  const dx = mx - hx;
+  const dy = my - hy;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  if (len === 0) return;
+
+  const speed = UI.getVal('speed');
+  const vx = (dx / len) * speed;
+  const vy = (dy / len) * speed;
+
+  Body.setVelocity(bullet, { x: vx, y: vy });
 }
 
 function mousePressed() {
@@ -106,6 +149,9 @@ function mouseDragged() {
       Body.setPosition(bullet, { x: bx, y: by });
       Body.setPosition(hunter, { x: bx, y: by });
     }
+
+    // ドラッグで位置が変わったら角度も自動更新
+    updateAngleFromPositions();
   }
 }
 
@@ -124,18 +170,22 @@ function draw() {
   const hx = hunter.position.x;
   const hy = hunter.position.y;
 
-  // 1. 照準線（大砲の角度に合わせた赤い破線直線）
+  // 1. 照準線：ハンター→サルの方向に沿った赤い破線
   if (!isFired) {
-    const ang = radians(-UI.getVal('angle'));
-    const dx = cos(ang);
-    const dy = sin(ang);
-    // 画面端まで両方向に延ばした直線
-    const extend = max(width, height) * 2;
-    stroke(255, 0, 0, 220);
-    strokeWeight(3);
-    drawingContext.setLineDash([10, 5]);
-    line(bx - dx * extend, by - dy * extend, bx + dx * extend, by + dy * extend);
-    drawingContext.setLineDash([]);
+    const dx = mx - hx;
+    const dy = my - hy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 0) {
+      const ux = dx / len;
+      const uy = dy / len;
+      const extend = max(width, height) * 2;
+      stroke(255, 0, 0, 220);
+      strokeWeight(3);
+      drawingContext.setLineDash([10, 5]);
+      // ハンターから猿の方向へ（後方にも少し伸ばす）
+      line(hx - ux * extend, hy - uy * extend, hx + ux * extend, hy + uy * extend);
+      drawingContext.setLineDash([]);
+    }
   }
 
   // 2. ハンターとサルを結ぶ「直線」（画面端まで伸ばした真の直線）
@@ -196,4 +246,5 @@ function windowResized() {
   const container = document.getElementById('canvas-container');
   resizeCanvas(container.offsetWidth, container.offsetHeight);
   resetSimulation();
+  updateAngleFromPositions();
 }
