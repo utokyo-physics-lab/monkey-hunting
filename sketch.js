@@ -92,22 +92,10 @@ function fire() {
   }
 
   // 発射方向：ハンター→サルへの単位ベクトルを使う（角度スライダーと完全一致）
-  const hx = hunter.position.x;
-  const hy = hunter.position.y;
-  const mx = monkey.position.x;
-  const my = monkey.position.y;
-
-  const dx = mx - hx;
-  const dy = my - hy;
-  const len = Math.sqrt(dx * dx + dy * dy);
-
-  if (len === 0) return;
-
+  // 角度スライダーの値を使って発射（ユーザーが照準を変えて実験できる）
+  const angle = radians(-UI.getVal('angle'));
   const speed = UI.getVal('speed');
-  const vx = (dx / len) * speed;
-  const vy = (dy / len) * speed;
-
-  Body.setVelocity(bullet, { x: vx, y: vy });
+  Body.setVelocity(bullet, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
 }
 
 function mousePressed() {
@@ -170,22 +158,17 @@ function draw() {
   const hx = hunter.position.x;
   const hy = hunter.position.y;
 
-  // 1. 照準線：ハンター→サルの方向に沿った赤い破線
+  // 1. 照準線：角度スライダーの値に沿った赤い破線（発射方向と完全一致）
   if (!isFired) {
-    const dx = mx - hx;
-    const dy = my - hy;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len > 0) {
-      const ux = dx / len;
-      const uy = dy / len;
-      const extend = max(width, height) * 2;
-      stroke(255, 0, 0, 220);
-      strokeWeight(3);
-      drawingContext.setLineDash([10, 5]);
-      // ハンターから猿の方向へ（後方にも少し伸ばす）
-      line(hx - ux * extend, hy - uy * extend, hx + ux * extend, hy + uy * extend);
-      drawingContext.setLineDash([]);
-    }
+    const ang = radians(-UI.getVal('angle'));
+    const ux = Math.cos(ang);
+    const uy = Math.sin(ang);
+    const extend = max(width, height) * 2;
+    stroke(255, 0, 0, 220);
+    strokeWeight(3);
+    drawingContext.setLineDash([10, 5]);
+    line(hx - ux * extend, hy - uy * extend, hx + ux * extend, hy + uy * extend);
+    drawingContext.setLineDash([]);
   }
 
   // 2. ハンターとサルを結ぶ「直線」（画面端まで伸ばした真の直線）
