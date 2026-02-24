@@ -56,9 +56,10 @@ main.container {
         grid-area: footer;
     }
 
-    /* キャンバスは横幅いっぱいに（左カラム内） */
+    /* キャンバスは左カラムで縦全体を使う */
     #canvas-container {
         margin-bottom: 0;
+        height: calc(100vh - 120px);
     }
 }
 
@@ -69,7 +70,8 @@ header {
 
 #canvas-container {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: calc(100vh - 180px);
+    min-height: 300px;
     background: #ffffff;
     border: 2px solid #e5e5e5;
     border-radius: 20px;
@@ -86,9 +88,8 @@ article {
 
 .main-actions {
     margin-bottom: 2rem;
-    /* 隙間を増やした */
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 3fr 2fr;
     gap: 1rem;
 }
 
