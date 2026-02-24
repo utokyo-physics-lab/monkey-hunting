@@ -138,17 +138,17 @@ function draw() {
     drawingContext.setLineDash([]);
   }
 
-  // 2. 弾とサルを結ぶ「直線」（画面端まで伸ばした真の直線）
+  // 2. ハンターとサルを結ぶ「直線」（画面端まで伸ばした真の直線）
   if (UI.isChecked('showLine')) {
-    const dx = mx - bx;
-    const dy = my - by;
+    const dx = mx - hx;
+    const dy = my - hy;
     const len = sqrt(dx * dx + dy * dy);
     if (len > 0) {
       const ux = dx / len, uy = dy / len;
       const extend = max(width, height) * 2;
       stroke(100, 100, 100, 200);
       strokeWeight(2);
-      line(bx - ux * extend, by - uy * extend, bx + ux * extend, by + uy * extend);
+      line(hx - ux * extend, hy - uy * extend, hx + ux * extend, hy + uy * extend);
     }
   }
 

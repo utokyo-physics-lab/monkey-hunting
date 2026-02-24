@@ -59,7 +59,7 @@ main.container {
     /* キャンバスは左カラムで縦全体を使う */
     #canvas-container {
         margin-bottom: 0;
-        height: calc(100vh - 120px);
+        height: 100vh;
     }
 }
 
@@ -70,7 +70,7 @@ header {
 
 #canvas-container {
     width: 100%;
-    height: calc(100vh - 180px);
+    height: 100vh;
     min-height: 300px;
     background: #ffffff;
     border: 2px solid #e5e5e5;
