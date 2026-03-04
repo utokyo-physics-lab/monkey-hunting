@@ -1,80 +1,49 @@
 const { Engine, World, Bodies, Body } = Matter;
-let engine, world, bullet, monkey, hunter, isFired = false;
-let trajectory = [];
-let draggingObj = null;
-let lastHitTime = 0;
+let engine, world, bullet, monkey, hunter;
+let isFired = false, trajectory = [], draggingObj = null, lastHitTime = 0;
 
+// ─── UI ヘルパー ──────────────────────────────────────────
 const UI = {
   getVal: (id) => parseFloat(document.getElementById(id).value),
-  // 小数点以下1桁まで保存（角度の0.1度単位対応）
-  setVal: (id, val) => {
-    const el = document.getElementById(id);
-    const step = parseFloat(el.step) || 1;
-    const decimals = (step.toString().split('.')[1] || '').length;
-    el.value = val.toFixed(decimals);
-  },
+  setVal: (id, v) => { const el = document.getElementById(id); el.value = v.toFixed((el.step || '1').includes('.') ? 1 : 0); },
   getGravity: () => parseFloat(document.querySelector('input[name="gravity"]:checked').value),
-  isChecked: (id) => document.getElementById(id).checked
+  isChecked: (id) => document.getElementById(id).checked,
 };
 
-// ハンター→サルの方向から角度（度）を計算してスライダーに反映する
+// ─── 座標ヘルパー ─────────────────────────────────────────
+const pct = (id, dim) => (UI.getVal(id) / 100) * dim;
+const monkeyPos = () => ({ x: pct('monkeyX', width), y: pct('monkeyY', height) });
+const hunterPos = () => ({ x: pct('bulletX', width), y: pct('bulletY', height) });
+const aimAngle = () => radians(-UI.getVal('angle'));
+
+// ハンター前方に弾をオフセット（ハンターと重ならないよう）
+const bulletOffset = (hx, hy) => ({ x: hx + Math.cos(aimAngle()) * 28, y: hy + Math.sin(aimAngle()) * 28 });
+
+// ─── 照準角度の自動計算 ───────────────────────────────────
 function updateAngleFromPositions() {
-  const mx = (UI.getVal('monkeyX') / 100) * width;
-  const my = (UI.getVal('monkeyY') / 100) * height;
-  const bx = (UI.getVal('bulletX') / 100) * width;
-  const by = (UI.getVal('bulletY') / 100) * height;
-
-  // atan2 で方向を計算（p5.js のy軸は下向き正なので符号に注意）
-  const angleDeg = -degrees(Math.atan2(my - by, mx - bx));
-  UI.setVal('angle', angleDeg);
+  const { x: mx, y: my } = monkeyPos();
+  const { x: hx, y: hy } = hunterPos();
+  UI.setVal('angle', -degrees(Math.atan2(my - hy, mx - hx)));
 }
 
-// ハンターの前方（発射方向）に弾を少しオフセットして配置する
-// ハンターと弾が重ならないようにするため
-function getBulletStartPos(hx, hy) {
-  const ang = radians(-UI.getVal('angle'));
-  const offsetDist = 28; // ハンターr=20 + 弾r=10 - 数px余裕
-  return {
-    x: hx + Math.cos(ang) * offsetDist,
-    y: hy + Math.sin(ang) * offsetDist
-  };
-}
-
+// ─── setup / reset ────────────────────────────────────────
 function setup() {
   const container = document.getElementById('canvas-container');
-  const canvas = createCanvas(container.offsetWidth, container.offsetHeight);
-  canvas.parent(container);
+  createCanvas(container.offsetWidth, container.offsetHeight).parent(container);
   engine = Engine.create();
   world = engine.world;
 
-  ['monkeyX', 'monkeyY', 'bulletX', 'bulletY'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      if (!isFired) {
-        resetSimulation();
-        // ハンター側(bulletX/bulletY)が変わった時だけ角度を自動更新
-        // サル側の数値入力も同様に更新（UIから直接入力なので両方更新する）
-        updateAngleFromPositions();
-      }
-    });
-  });
-  document.getElementById('speed').addEventListener('input', () => {
-    if (!isFired) resetSimulation();
-  });
-  // 角度を手動で変えたときもリセットして照準を反映
-  document.getElementById('angle').addEventListener('input', () => {
-    if (!isFired) resetSimulation();
+  // 位置入力 → リセット（角度は変更しない）
+  ['monkeyX', 'monkeyY', 'bulletX', 'bulletY', 'angle', 'speed'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => { if (!isFired) resetSimulation(); });
   });
   document.querySelectorAll('input[name="gravity"]').forEach(el => {
     el.addEventListener('change', () => { engine.gravity.y = UI.getGravity(); });
   });
   document.getElementById('hunterFall').addEventListener('change', () => { if (!isFired) resetSimulation(); });
-
   document.getElementById('fireBtn').onclick = fire;
   document.getElementById('resetBtn').onclick = resetSimulation;
-  document.getElementById('autoAimBtn').onclick = () => {
-    updateAngleFromPositions();
-    resetSimulation();
-  };
+  document.getElementById('autoAimBtn').onclick = () => { updateAngleFromPositions(); resetSimulation(); };
 
   resetSimulation();
   updateAngleFromPositions();
@@ -82,126 +51,102 @@ function setup() {
 
 function resetSimulation() {
   World.clear(world);
-  isFired = false;
-  trajectory = [];
-  lastHitTime = 0;
-  engine.gravity.y = UI.getGravity();
+  Object.assign(engine.gravity, { y: UI.getGravity() });
+  isFired = false; trajectory = []; lastHitTime = 0;
 
-  const mx = (UI.getVal('monkeyX') / 100) * width;
-  const my = (UI.getVal('monkeyY') / 100) * height;
+  const { x: mx, y: my } = monkeyPos();
+  const { x: hx, y: hy } = hunterPos();
+  const bp = bulletOffset(hx, hy);
+
   monkey = Bodies.circle(mx, my, 20, { isStatic: true });
-
-  // ハンター（当たり判定あり・静止）
-  const bx = (UI.getVal('bulletX') / 100) * width;
-  const by = (UI.getVal('bulletY') / 100) * height;
-  hunter = Bodies.circle(bx, by, 20, { isStatic: true, isSensor: true });
-
-  // 弾丸：ハンターの前方にオフセット配置、isSensor=trueで他物体と衝突しない
-  const bpos = getBulletStartPos(bx, by);
-  bullet = Bodies.circle(bpos.x, bpos.y, 10, { isStatic: true, isSensor: true });
+  hunter = Bodies.circle(hx, hy, 20, { isStatic: true, isSensor: true }); // 弾と衝突しない
+  bullet = Bodies.circle(bp.x, bp.y, 10, { isStatic: true });             // サルとは物理衝突あり
 
   World.add(world, [monkey, hunter, bullet]);
 }
 
+// ─── 発射 ─────────────────────────────────────────────────
 function fire() {
   if (isFired) return;
   isFired = true;
   Body.setStatic(monkey, false);
   Body.setStatic(bullet, false);
+  if (UI.isChecked('hunterFall')) Body.setStatic(hunter, false);
 
-  // ハンターも落下させる場合
-  if (UI.isChecked('hunterFall')) {
-    Body.setStatic(hunter, false);
-  }
-
-  // 発射方向：角度スライダーの値を使う
-  const angle = radians(-UI.getVal('angle'));
-  const speed = UI.getVal('speed');
-  Body.setVelocity(bullet, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
+  const ang = aimAngle(), speed = UI.getVal('speed');
+  Body.setVelocity(bullet, { x: Math.cos(ang) * speed, y: Math.sin(ang) * speed });
 }
 
+// ─── マウス操作 ───────────────────────────────────────────
 function mousePressed() {
   if (isFired) return;
-  const dMonkey = dist(mouseX, mouseY, monkey.position.x, monkey.position.y);
-  const dHunter = dist(mouseX, mouseY, hunter.position.x, hunter.position.y);
-
-  if (dMonkey < 40) {
-    draggingObj = 'monkey';
-  } else if (dHunter < 40) {
-    draggingObj = 'hunter';
-  }
+  if (dist(mouseX, mouseY, monkey.position.x, monkey.position.y) < 40) draggingObj = 'monkey';
+  else if (dist(mouseX, mouseY, hunter.position.x, hunter.position.y) < 40) draggingObj = 'hunter';
 }
 
 function mouseDragged() {
   if (!draggingObj || isFired) return;
 
+  const configs = {
+    monkey: { ids: ['monkeyX', 'monkeyY'], limits: [[40, 95], [5, 80]], body: () => monkey },
+    hunter: { ids: ['bulletX', 'bulletY'], limits: [[2, 95], [5, 95]], body: () => hunter },
+  };
+  const cfg = configs[draggingObj];
+  const [xPct, yPct] = [
+    constrain((mouseX / width) * 100, ...cfg.limits[0]),
+    constrain((mouseY / height) * 100, ...cfg.limits[1]),
+  ];
+  UI.setVal(cfg.ids[0], xPct);
+  UI.setVal(cfg.ids[1], yPct);
+
+  const { x: hx, y: hy } = hunterPos();
+  const { x: mx, y: my } = monkeyPos();
+
   if (draggingObj === 'monkey') {
-    const xPct = constrain((mouseX / width) * 100, 40, 95);
-    const yPct = constrain((mouseY / height) * 100, 5, 80);
-    UI.setVal('monkeyX', xPct);
-    UI.setVal('monkeyY', yPct);
-    const mx = (UI.getVal('monkeyX') / 100) * width;
-    const my = (UI.getVal('monkeyY') / 100) * height;
     Body.setPosition(monkey, { x: mx, y: my });
-    // サルを動かしても照準角度は変えない（ユーザーが意図的にずらして実験できる）
-  } else if (draggingObj === 'hunter') {
-    const xPct = constrain((mouseX / width) * 100, 2, 95);
-    const yPct = constrain((mouseY / height) * 100, 5, 95);
-    UI.setVal('bulletX', xPct);
-    UI.setVal('bulletY', yPct);
-    const bx = (UI.getVal('bulletX') / 100) * width;
-    const by = (UI.getVal('bulletY') / 100) * height;
-    Body.setPosition(hunter, { x: bx, y: by });
-    // ハンターを動かしたときは角度を自動更新し弾位置も更新
-    updateAngleFromPositions();
-    const bpos = getBulletStartPos(bx, by);
-    Body.setPosition(bullet, { x: bpos.x, y: bpos.y });
+    // サルを動かしても照準角度は変えない（意図的なズレを実験できるよう）
+  } else {
+    Body.setPosition(hunter, { x: hx, y: hy });
+    // ハンターを動かしても照準角度は変えない
+    const bp = bulletOffset(hx, hy);
+    Body.setPosition(bullet, { x: bp.x, y: bp.y });
   }
 }
 
-function mouseReleased() {
-  draggingObj = null;
-}
+function mouseReleased() { draggingObj = null; }
 
+// ─── 描画 ─────────────────────────────────────────────────
 function draw() {
   background(255);
   Engine.update(engine);
 
-  const bx = bullet.position.x;
-  const by = bullet.position.y;
-  const mx = monkey.position.x;
-  const my = monkey.position.y;
-  const hx = hunter.position.x;
-  const hy = hunter.position.y;
+  const { x: bx, y: by } = bullet.position;
+  const { x: mx, y: my } = monkey.position;
+  const { x: hx, y: hy } = hunter.position;
+  const ang = aimAngle();
+  const ext = max(width, height) * 2;
 
-  // 1. 照準線：角度スライダーの値に沿った赤い破線（発射方向と完全一致）
+  // 照準線（発射前のみ）
   if (!isFired) {
-    const ang = radians(-UI.getVal('angle'));
-    const ux = Math.cos(ang);
-    const uy = Math.sin(ang);
-    const extend = max(width, height) * 2;
-    stroke(255, 0, 0, 220);
-    strokeWeight(3);
+    const [ux, uy] = [Math.cos(ang), Math.sin(ang)];
+    stroke(255, 0, 0, 220); strokeWeight(3);
     drawingContext.setLineDash([10, 5]);
-    line(hx - ux * extend, hy - uy * extend, hx + ux * extend, hy + uy * extend);
+    line(hx - ux * ext, hy - uy * ext, hx + ux * ext, hy + uy * ext);
     drawingContext.setLineDash([]);
   }
 
-  // 2. ハンターとサルを結ぶ「直線」（画面端まで伸ばした真の直線）
+  // ハンター↔サル 結線
   if (UI.isChecked('showLine')) {
-    const dx = mx - hx;
-    const dy = my - hy;
+    const [dx, dy] = [mx - hx, my - hy];
     const len = sqrt(dx * dx + dy * dy);
     if (len > 0) {
-      const ux = dx / len, uy = dy / len;
-      const extend = max(width, height) * 2;
-      stroke(100, 100, 100, 200);
-      strokeWeight(2);
-      line(hx - ux * extend, hy - uy * extend, hx + ux * extend, hy + uy * extend);
+      const [ux, uy] = [dx / len, dy / len];
+      stroke(100, 100, 100, 200); strokeWeight(2);
+      line(hx - ux * ext, hy - uy * ext, hx + ux * ext, hy + uy * ext);
     }
   }
 
-  // 3. 通り道（軌道ビーム）
+  // 弾の軌道
   if (isFired && UI.isChecked('showTrajectory')) {
     trajectory.push({ x: bx, y: by });
     if (trajectory.length > 100) trajectory.shift();
@@ -211,43 +156,31 @@ function draw() {
     drawingContext.shadowBlur = 0;
   }
 
-  // 描画：ハンター（青い円）
-  fill(draggingObj === 'hunter' ? '#0099ff' : '#3b82f6');
-  noStroke(); circle(hx, hy, 40);
-  fill(255); textSize(18); textAlign(CENTER, CENTER); textStyle(NORMAL);
-  text('🔫', hx, hy);
+  // キャラクター描画（共通ヘルパー）
+  const drawChar = (x, y, r, color, icon) => {
+    fill(color); noStroke(); circle(x, y, r * 2);
+    fill(255); textSize(18); textAlign(CENTER, CENTER); textStyle(NORMAL);
+    text(icon, x, y);
+  };
 
-  // 描画：サル
-  fill(draggingObj === 'monkey' ? '#ff7f0e' : '#ff9f43');
-  noStroke(); circle(mx, my, 40);
-  fill(255); textSize(18); textAlign(CENTER, CENTER);
-  text('🐵', mx, my);
+  drawChar(hx, hy, 20, draggingObj === 'hunter' ? '#0099ff' : '#3b82f6', '🔫');
+  drawChar(mx, my, 20, draggingObj === 'monkey' ? '#ff7f0e' : '#ff9f43', '🐵');
 
-  // 描画：弾丸（発射前はハンターの前方に表示、発射後は物理で動く）
-  if (!isFired) {
-    // 発射前の弾は照準方向オフセット位置にアイコン描画
-    const ang = radians(-UI.getVal('angle'));
-    const bDrawX = hx + Math.cos(ang) * 28;
-    const bDrawY = hy + Math.sin(ang) * 28;
-    fill('#58cc02'); noStroke(); circle(bDrawX, bDrawY, 20);
-  } else {
-    fill('#58cc02'); noStroke(); circle(bx, by, 20);
-  }
+  // 弾丸（発射前はハンター前方の固定位置に表示）
+  const [dbx, dby] = isFired
+    ? [bx, by]
+    : [hx + Math.cos(ang) * 28, hy + Math.sin(ang) * 28];
+  fill('#58cc02'); noStroke(); circle(dbx, dby, 20);
 
-  // 当たり判定
-  if (dist(bx, by, mx, my) < 30) {
-    lastHitTime = millis();
-  }
-
-  if (millis() - lastHitTime < 1500 && lastHitTime !== 0) {
-    fill(88, 204, 2);
-    textSize(48);
-    textStyle(BOLD);
-    textAlign(CENTER);
-    text("あたり！", width / 2, height / 2);
+  // 当たり判定（サル↔弾）
+  if (isFired && dist(bx, by, mx, my) < 30) lastHitTime = millis();
+  if (lastHitTime > 0 && millis() - lastHitTime < 1500) {
+    fill(88, 204, 2); textSize(48); textStyle(BOLD); textAlign(CENTER);
+    text('あたり！', width / 2, height / 2);
   }
 }
 
+// ─── ウィンドウリサイズ ───────────────────────────────────
 function windowResized() {
   const container = document.getElementById('canvas-container');
   resizeCanvas(container.offsetWidth, container.offsetHeight);
