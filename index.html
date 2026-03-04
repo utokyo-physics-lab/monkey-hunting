@@ -34,9 +34,10 @@
                     <button id="fireBtn" class="primary">発射！</button>
                     <button id="resetBtn" class="outline">リセット</button>
                 </div>
+                <button id="autoAimBtn" class="outline auto-aim-btn">🎯 自動で照準を合わせる</button>
 
                 <div class="grid">
-                    <label>角度 (度) <input type="number" id="angle" value="30" min="-90" max="90"></label>
+                    <label>角度 (度) <input type="number" id="angle" value="30" min="-90" max="90" step="0.1"></label>
                     <label>弾の速さ <input type="number" id="speed" value="15" min="1"></label>
                 </div>
 
@@ -59,7 +60,7 @@
                     <label><input type="radio" name="gravity" value="1" checked> 地球</label>
                 </fieldset>
 
-                <div class="grid visual-options">
+                <div class="visual-options">
                     <label><input type="checkbox" id="hunterFall"> ハンターも一緒に落下する</label>
                     <label><input type="checkbox" id="showLine" checked> ハンターとサルを結ぶ直線を表示</label>
                     <label><input type="checkbox" id="showTrajectory" checked> 弾の通り道を表示</label>
@@ -68,7 +69,7 @@
         </section>
 
         <footer>
-            <small>サルを直接ドラッグして動かせるよ！</small>
+            <small>サルやハンターを直接ドラッグして動かせるよ！🎯自動照準ボタンで正確な角度に合わせよう</small>
         </footer>
     </main>
     <script src="sketch.js"></script>

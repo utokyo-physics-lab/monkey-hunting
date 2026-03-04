@@ -6,7 +6,13 @@ let lastHitTime = 0;
 
 const UI = {
   getVal: (id) => parseFloat(document.getElementById(id).value),
-  setVal: (id, val) => { document.getElementById(id).value = Math.round(val); },
+  // 小数点以下1桁まで保存（角度の0.1度単位対応）
+  setVal: (id, val) => {
+    const el = document.getElementById(id);
+    const step = parseFloat(el.step) || 1;
+    const decimals = (step.toString().split('.')[1] || '').length;
+    el.value = val.toFixed(decimals);
+  },
   getGravity: () => parseFloat(document.querySelector('input[name="gravity"]:checked').value),
   isChecked: (id) => document.getElementById(id).checked
 };
@@ -19,10 +25,19 @@ function updateAngleFromPositions() {
   const by = (UI.getVal('bulletY') / 100) * height;
 
   // atan2 で方向を計算（p5.js のy軸は下向き正なので符号に注意）
-  // dx = mx - bx (右方向正), dy = my - by (下方向正)
-  // 表示用の角度は「水平から上向きを正」とする
   const angleDeg = -degrees(Math.atan2(my - by, mx - bx));
   UI.setVal('angle', angleDeg);
+}
+
+// ハンターの前方（発射方向）に弾を少しオフセットして配置する
+// ハンターと弾が重ならないようにするため
+function getBulletStartPos(hx, hy) {
+  const ang = radians(-UI.getVal('angle'));
+  const offsetDist = 28; // ハンターr=20 + 弾r=10 - 数px余裕
+  return {
+    x: hx + Math.cos(ang) * offsetDist,
+    y: hy + Math.sin(ang) * offsetDist
+  };
 }
 
 function setup() {
@@ -36,15 +51,16 @@ function setup() {
     document.getElementById(id).addEventListener('input', () => {
       if (!isFired) {
         resetSimulation();
+        // ハンター側(bulletX/bulletY)が変わった時だけ角度を自動更新
+        // サル側の数値入力も同様に更新（UIから直接入力なので両方更新する）
         updateAngleFromPositions();
       }
     });
   });
-  // 速さスライダーは角度に影響しない
   document.getElementById('speed').addEventListener('input', () => {
     if (!isFired) resetSimulation();
   });
-  // 角度スライダーは読み取り専用表示（手動変更は無効化しない方が柔軟）
+  // 角度を手動で変えたときもリセットして照準を反映
   document.getElementById('angle').addEventListener('input', () => {
     if (!isFired) resetSimulation();
   });
@@ -55,6 +71,11 @@ function setup() {
 
   document.getElementById('fireBtn').onclick = fire;
   document.getElementById('resetBtn').onclick = resetSimulation;
+  document.getElementById('autoAimBtn').onclick = () => {
+    updateAngleFromPositions();
+    resetSimulation();
+  };
+
   resetSimulation();
   updateAngleFromPositions();
 }
@@ -70,12 +91,14 @@ function resetSimulation() {
   const my = (UI.getVal('monkeyY') / 100) * height;
   monkey = Bodies.circle(mx, my, 20, { isStatic: true });
 
-  // ハンター（弾丸の位置に描画・サイズはサルと同じ）
+  // ハンター（当たり判定あり・静止）
   const bx = (UI.getVal('bulletX') / 100) * width;
   const by = (UI.getVal('bulletY') / 100) * height;
-  hunter = Bodies.circle(bx, by, 20, { isStatic: true });
+  hunter = Bodies.circle(bx, by, 20, { isStatic: true, isSensor: true });
 
-  bullet = Bodies.circle(bx, by, 10, { isStatic: true });
+  // 弾丸：ハンターの前方にオフセット配置、isSensor=trueで他物体と衝突しない
+  const bpos = getBulletStartPos(bx, by);
+  bullet = Bodies.circle(bpos.x, bpos.y, 10, { isStatic: true, isSensor: true });
 
   World.add(world, [monkey, hunter, bullet]);
 }
@@ -91,8 +114,7 @@ function fire() {
     Body.setStatic(hunter, false);
   }
 
-  // 発射方向：ハンター→サルへの単位ベクトルを使う（角度スライダーと完全一致）
-  // 角度スライダーの値を使って発射（ユーザーが照準を変えて実験できる）
+  // 発射方向：角度スライダーの値を使う
   const angle = radians(-UI.getVal('angle'));
   const speed = UI.getVal('speed');
   Body.setVelocity(bullet, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
@@ -101,12 +123,12 @@ function fire() {
 function mousePressed() {
   if (isFired) return;
   const dMonkey = dist(mouseX, mouseY, monkey.position.x, monkey.position.y);
-  const dBullet = dist(mouseX, mouseY, bullet.position.x, bullet.position.y);
+  const dHunter = dist(mouseX, mouseY, hunter.position.x, hunter.position.y);
 
   if (dMonkey < 40) {
     draggingObj = 'monkey';
-  } else if (dBullet < 40) {
-    draggingObj = 'bullet';
+  } else if (dHunter < 40) {
+    draggingObj = 'hunter';
   }
 }
 
@@ -118,28 +140,22 @@ function mouseDragged() {
     const yPct = constrain((mouseY / height) * 100, 5, 80);
     UI.setVal('monkeyX', xPct);
     UI.setVal('monkeyY', yPct);
-  } else if (draggingObj === 'bullet') {
+    const mx = (UI.getVal('monkeyX') / 100) * width;
+    const my = (UI.getVal('monkeyY') / 100) * height;
+    Body.setPosition(monkey, { x: mx, y: my });
+    // サルを動かしても照準角度は変えない（ユーザーが意図的にずらして実験できる）
+  } else if (draggingObj === 'hunter') {
     const xPct = constrain((mouseX / width) * 100, 2, 95);
     const yPct = constrain((mouseY / height) * 100, 5, 95);
     UI.setVal('bulletX', xPct);
     UI.setVal('bulletY', yPct);
-  }
-
-  if (!isFired) {
-    const mx = (UI.getVal('monkeyX') / 100) * width;
-    const my = (UI.getVal('monkeyY') / 100) * height;
     const bx = (UI.getVal('bulletX') / 100) * width;
     const by = (UI.getVal('bulletY') / 100) * height;
-
-    if (draggingObj === 'monkey') {
-      Body.setPosition(monkey, { x: mx, y: my });
-    } else if (draggingObj === 'bullet') {
-      Body.setPosition(bullet, { x: bx, y: by });
-      Body.setPosition(hunter, { x: bx, y: by });
-    }
-
-    // ドラッグで位置が変わったら角度も自動更新
+    Body.setPosition(hunter, { x: bx, y: by });
+    // ハンターを動かしたときは角度を自動更新し弾位置も更新
     updateAngleFromPositions();
+    const bpos = getBulletStartPos(bx, by);
+    Body.setPosition(bullet, { x: bpos.x, y: bpos.y });
   }
 }
 
@@ -196,9 +212,8 @@ function draw() {
   }
 
   // 描画：ハンター（青い円）
-  fill(draggingObj === 'bullet' ? '#0099ff' : '#3b82f6');
+  fill(draggingObj === 'hunter' ? '#0099ff' : '#3b82f6');
   noStroke(); circle(hx, hy, 40);
-  // ハンターのアイコン文字
   fill(255); textSize(18); textAlign(CENTER, CENTER); textStyle(NORMAL);
   text('🔫', hx, hy);
 
@@ -208,8 +223,16 @@ function draw() {
   fill(255); textSize(18); textAlign(CENTER, CENTER);
   text('🐵', mx, my);
 
-  // 描画：弾丸
-  fill('#58cc02'); noStroke(); circle(bx, by, 20);
+  // 描画：弾丸（発射前はハンターの前方に表示、発射後は物理で動く）
+  if (!isFired) {
+    // 発射前の弾は照準方向オフセット位置にアイコン描画
+    const ang = radians(-UI.getVal('angle'));
+    const bDrawX = hx + Math.cos(ang) * 28;
+    const bDrawY = hy + Math.sin(ang) * 28;
+    fill('#58cc02'); noStroke(); circle(bDrawX, bDrawY, 20);
+  } else {
+    fill('#58cc02'); noStroke(); circle(bx, by, 20);
+  }
 
   // 当たり判定
   if (dist(bx, by, mx, my) < 30) {
