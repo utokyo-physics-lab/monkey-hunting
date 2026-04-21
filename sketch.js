@@ -1,11 +1,14 @@
-const { Engine, World, Bodies, Body } = Matter;
+let Engine, World, Bodies, Body;
 let engine, world, bullet, monkey, hunter;
 let isFired = false, trajectory = [], draggingObj = null, lastHitTime = 0;
 
 // ─── UI ヘルパー ──────────────────────────────────────────
 const UI = {
-  getVal: (id) => parseFloat(document.getElementById(id).value),
-  setVal: (id, v) => { const el = document.getElementById(id); el.value = v.toFixed((el.step || '1').includes('.') ? 1 : 0); },
+  getVal: (id) => {
+    let v = parseFloat(document.getElementById(id).value);
+    return isNaN(v) ? 0 : v;
+  },
+  setVal: (id, v) => { const el = document.getElementById(id); if(!isNaN(v)) el.value = v.toFixed((el.step || '1').includes('.') ? 1 : 0); },
   getGravity: () => parseFloat(document.querySelector('input[name="gravity"]:checked').value),
   isChecked: (id) => document.getElementById(id).checked,
 };
@@ -28,6 +31,8 @@ function updateAngleFromPositions() {
 
 // ─── setup / reset ────────────────────────────────────────
 function setup() {
+  // Matter.js モジュールを setup() 内で取得（読み込み完了を保証）
+  ({ Engine, World, Bodies, Body } = Matter);
   const container = document.getElementById('canvas-container');
   createCanvas(container.offsetWidth, container.offsetHeight).parent(container);
   engine = Engine.create();
